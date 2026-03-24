@@ -1,0 +1,98 @@
+[
+  {
+    "source_id": "upload_20260324_doc1",
+    "source_type": "upload",
+    "doc_id": "rider_emergency_sop_v1",
+    "doc_title": "Rider Emergency SOP",
+    "section_id": "sec_1_1_general_emergency",
+    "section_title": "General rider emergency in vehicle",
+    "section_text": "If a rider reports an emergency while in the vehicle: 1) Stay calm and keep the rider on the line. 2) Ask the rider to briefly describe the emergency (medical, safety, external threat, etc.). 3) Confirm the rider's current condition (conscious/unconscious, able to speak, any immediate danger). 4) Confirm the vehicle's status (moving, stopped, pulled over). 5) If there is any immediate risk to life or serious injury, contact local emergency services according to the Emergency Contact SOP and provide vehicle location. 6) Notify the on-duty safety lead or supervisor. 7) Document the incident in the incident tracking system with as much detail as possible after the rider is safe.",
+    "tags": ["emergency", "rider", "general"],
+    "last_updated": "2026-03-24T09:00:00Z",
+    "url": null
+  },
+  {
+    "source_id": "upload_20260324_doc1",
+    "source_type": "upload",
+    "doc_id": "rider_emergency_sop_v1",
+    "doc_title": "Rider Emergency SOP",
+    "section_id": "sec_1_2_medical_emergency",
+    "section_title": "Medical emergency in vehicle",
+    "section_text": "If a rider reports a medical emergency: 1) Ask if the rider can safely exit the vehicle at the next safe stop. 2) If they cannot exit safely or are in severe distress, instruct the vehicle (through standard procedures) to pull over at the nearest safe location if it is not already stopped. 3) Immediately contact local emergency services, provide the precise vehicle location, and follow their instructions. 4) Keep the rider on the line if possible, provide reassurance, and avoid giving medical advice beyond reading approved guidance if applicable. 5) Notify the safety lead and log the incident as 'Medical - High Priority'. 6) After emergency services take over, arrange an alternative vehicle for other riders if needed and capture a brief summary of actions taken.",
+    "tags": ["emergency", "rider", "medical"],
+    "last_updated": "2026-03-24T09:00:00Z",
+    "url": null
+  },
+  {
+    "source_id": "upload_20260324_doc1",
+    "source_type": "upload",
+    "doc_id": "rider_emergency_sop_v1",
+    "doc_title": "Rider Emergency SOP",
+    "section_id": "sec_1_3_police_interaction",
+    "section_title": "Police interaction involving a vehicle",
+    "section_text": "When law enforcement interacts with a vehicle or requests information: 1) Confirm whether the vehicle is currently stopped and that riders are safe. 2) If speaking with an officer via phone, identify yourself as remote support and follow the Law Enforcement Interaction Guidelines document. 3) If the officer is on scene, use any approved external communication methods to inform them that the vehicle is a driverless test or commercial vehicle, as documented in the guidelines. 4) Avoid sharing rider personal data beyond what is allowed by policy and law; direct the officer to the designated legal or safety contact if they request more information. 5) Notify the safety lead and log the interaction with time, location, badge number if available, and a short description.",
+    "tags": ["emergency", "police", "vehicle"],
+    "last_updated": "2026-03-24T09:00:00Z",
+    "url": null
+  },
+  {
+    "source_id": "upload_20260324_doc2",
+    "source_type": "upload",
+    "doc_id": "vehicle_stuck_sop_v1",
+    "doc_title": "Vehicle Stuck or Blocked SOP",
+    "section_id": "sec_2_1_stuck_obstacle",
+    "section_title": "Vehicle blocked by obstacle (pylon, cone, stalled car)",
+    "section_text": "If a vehicle is stopped and appears blocked by an obstacle (e.g., construction cone, pylon, stalled vehicle) and cannot proceed autonomously: 1) Verify via available cameras and telemetry that it is safe to remain stopped. 2) Check traffic conditions around the vehicle to ensure riders are not at immediate risk. 3) If riders are on board, explain that the vehicle has paused due to an obstacle and that you are working to resolve it. 4) Consult the remote guidance or tele-assistance tool (if available) to determine if a safe alternative path around the obstacle can be taken according to policy. 5) If remote guidance can safely navigate around the obstacle, follow the procedure to authorize that manoeuvre. 6) If the obstacle cannot be bypassed safely, arrange an alternative vehicle for the rider and keep the original vehicle stopped until the obstacle is cleared or a ground team intervenes. 7) Log the obstacle type, location, and resolution for future analysis.",
+    "tags": ["vehicle", "stuck", "obstacle"],
+    "last_updated": "2026-03-24T09:05:00Z",
+    "url": null
+  },
+  {
+    "source_id": "upload_20260324_doc2",
+    "source_type": "upload",
+    "doc_id": "vehicle_stuck_sop_v1",
+    "doc_title": "Vehicle Stuck or Blocked SOP",
+    "section_id": "sec_2_2_complex_intersection",
+    "section_title": "Vehicle stuck at complex intersection",
+    "section_text": "If a vehicle is repeatedly pausing or not progressing at a complex intersection: 1) Confirm via telemetry that there is no immediate safety hazard to riders or other road users. 2) Use the available camera views to assess whether temporary conditions (e.g., unusual lane markings, pedestrians, unexpected road work) could be confusing the autonomous system. 3) Communicate with the rider to let them know the vehicle is assessing the situation and that you are reviewing options. 4) If remote guidance is available, follow the standard remote guidance workflow to suggest a safe path if permitted by policy. 5) If remote guidance cannot resolve the situation within a defined time threshold, arrange an alternative ride for the rider and instruct the vehicle to pull over to a safe location if possible. 6) Flag the incident for follow-up with the autonomy and mapping teams, including logs and a brief description of the environment.",
+    "tags": ["vehicle", "stuck", "intersection"],
+    "last_updated": "2026-03-24T09:05:00Z",
+    "url": null
+  },
+  {
+    "source_id": "upload_20260324_doc3",
+    "source_type": "upload",
+    "doc_id": "lost_and_found_sop_v1",
+    "doc_title": "Lost and Found SOP",
+    "section_id": "sec_3_1_rider_reports_lost_item",
+    "section_title": "Rider reports leaving an item in the vehicle",
+    "section_text": "When a rider reports they left an item in a vehicle: 1) Verify the rider's identity using standard verification questions (e.g., recent trip details). 2) Ask the rider to describe the item and approximate time of the trip. 3) Check the internal tools to locate the vehicle and see if the item has already been reported by staff or found in a previous sweep. 4) If the item may still be in the vehicle, create a 'lost item' ticket with trip ID, item description, and rider contact information. 5) Follow the internal process to notify the appropriate depot or operations team to inspect the vehicle. 6) Communicate expected follow-up time to the rider and provide a reference number. 7) Update the ticket when the item is found or confirmed missing and inform the rider of the outcome.",
+    "tags": ["lost", "found", "rider", "support"],
+    "last_updated": "2026-03-24T09:10:00Z",
+    "url": null
+  },
+  {
+    "source_id": "upload_20260324_doc3",
+    "source_type": "upload",
+    "doc_id": "lost_and_found_sop_v1",
+    "doc_title": "Lost and Found SOP",
+    "section_id": "sec_3_2_item_found_without_report",
+    "section_title": "Item found in vehicle without rider report",
+    "section_text": "When an item is found in a vehicle by staff or during a routine sweep and no rider has reported it yet: 1) Record the item in the lost and found system with time, vehicle ID, depot, and a clear description of the item. 2) Store the item in the designated secure area at the depot with a matching label or barcode. 3) Periodically match newly reported lost items against the recorded found items by description and date. 4) When a match is likely, verify with the rider using identifying details (e.g., color, brand, unique features) before releasing the item. 5) Document handoff details in the lost and found system.",
+    "tags": ["lost", "found", "depot"],
+    "last_updated": "2026-03-24T09:10:00Z",
+    "url": null
+  },
+  {
+    "source_id": "upload_20260324_doc4",
+    "source_type": "upload",
+    "doc_id": "rider_support_general_faq_v1",
+    "doc_title": "Rider Support General FAQ",
+    "section_id": "sec_4_1_rider_feels_unsafe",
+    "section_title": "Rider reports feeling unsafe",
+    "section_text": "If a rider reports feeling unsafe (not strictly a medical emergency): 1) Ask the rider to clarify whether the concern is about the vehicle behaviour, another person, or the environment outside the vehicle. 2) If the concern is about vehicle behaviour, review the vehicle status and logs; if needed, request the vehicle to pull over at a safe location. 3) If the concern is due to another person in the vehicle, follow the interpersonal conflict or harassment SOP if applicable. 4) If the concern is about the surrounding environment (e.g., location), consider offering to end the trip at a nearby safer location if policy allows and arrange onward transport if appropriate. 5) Document the concern and any actions taken. If there is any indication of imminent harm, treat the situation as an emergency and follow the emergency SOP.",
+    "tags": ["rider", "safety", "support"],
+    "last_updated": "2026-03-24T09:12:00Z",
+    "url": null
+  }
+]

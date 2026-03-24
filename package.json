@@ -1,0 +1,17 @@
+{
+  "name": "zoox-playbook-assistant",
+  "version": "1.0.0",
+  "description": "Zoox Playbook Assistant — AI-powered knowledge base for Rider Operations",
+  "main": "server/index.js",
+  "type": "module",
+  "scripts": {
+    "dev:server": "cd server && node index.js",
+    "dev:client": "cd client && npx vite",
+    "build": "cd client && npm install && npx vite build",
+    "start": "node server/index.js",
+    "postinstall": "cd server && npm install && cd ../client && npm install && npx vite build"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

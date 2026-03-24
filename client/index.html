@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Zoox Playbook Assistant — AI-powered knowledge base for Rider Operations agents. Get instant, grounded answers from uploaded SOPs." />
+  <title>Zoox Playbook Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Header -->
+  <header class="header" id="header">
+    <div class="header-left">
+      <div class="logo" id="logo">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <rect width="32" height="32" rx="8" fill="url(#logoGrad)"/>
+          <path d="M8 16L14 10L20 16L14 22Z" fill="white" opacity="0.9"/>
+          <path d="M14 16L20 10L26 16L20 22Z" fill="white" opacity="0.6"/>
+          <defs>
+            <linearGradient id="logoGrad" x1="0" y1="0" x2="32" y2="32">
+              <stop stop-color="#F59E0B"/>
+              <stop offset="1" stop-color="#D97706"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <span class="logo-text">Zoox <span class="logo-accent">Playbook</span></span>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="status-badge" id="statusBadge">
+        <span class="status-dot"></span>
+        <span class="status-text">System Online</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main" id="main">
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs" id="navTabs">
+      <button class="nav-tab active" data-tab="query" id="tabQuery">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        Ask a Question
+      </button>
+      <button class="nav-tab" data-tab="knowledge" id="tabKnowledge">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+        </svg>
+        Knowledge Base
+      </button>
+      <button class="nav-tab" data-tab="feedback" id="tabFeedback">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        Feedback Log
+      </button>
+    </nav>
+
+    <!-- Query Tab -->
+    <section class="tab-content active" id="querySection">
+      <!-- Query Input -->
+      <div class="card query-card" id="queryCard">
+        <h2 class="card-title">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          Ask a Question
+        </h2>
+        <p class="card-subtitle">Get instant, step-by-step answers grounded in your uploaded SOPs</p>
+        
+        <div class="query-input-group" id="queryInputGroup">
+          <textarea 
+            id="queryInput" 
+            class="query-input" 
+            placeholder="e.g. What do I do if a rider has a medical emergency in the vehicle?"
+            rows="3"
+          ></textarea>
+          
+          <div class="query-controls">
+            <div class="tag-filter-container">
+              <label class="filter-label">Filter by tags:</label>
+              <div class="tag-pills" id="tagPills">
+                <!-- Tags loaded dynamically -->
+              </div>
+            </div>
+            <button class="btn btn-primary query-btn" id="queryBtn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+              Search & Answer
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Answer Display -->
+      <div class="card answer-card hidden" id="answerCard">
+        <div class="answer-header">
+          <h2 class="card-title">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            Answer
+          </h2>
+          <span class="answer-model" id="answerModel"></span>
+        </div>
+        
+        <div class="answer-content" id="answerContent">
+          <!-- Answer rendered as markdown here -->
+        </div>
+
+        <!-- Retrieved Sources -->
+        <div class="sources-panel" id="sourcesPanel">
+          <h3 class="sources-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+              <polyline points="13 2 13 9 20 9"/>
+            </svg>
+            Retrieved Sections
+          </h3>
+          <div class="sources-list" id="sourcesList"></div>
+        </div>
+
+        <!-- Feedback -->
+        <div class="feedback-controls" id="feedbackControls">
+          <span class="feedback-label">Was this helpful?</span>
+          <div class="feedback-btns">
+            <button class="btn btn-feedback btn-helpful" id="btnHelpful">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+              </svg>
+              Helpful
+            </button>
+            <button class="btn btn-feedback btn-not-helpful" id="btnNotHelpful">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/>
+              </svg>
+              Not Helpful
+            </button>
+          </div>
+          <div class="feedback-comment hidden" id="feedbackComment">
+            <textarea id="feedbackInput" class="feedback-textarea" placeholder="Optional: tell us what could be improved..." rows="2"></textarea>
+            <button class="btn btn-small btn-submit-feedback" id="submitFeedback">Submit Feedback</button>
+          </div>
+          <div class="feedback-thanks hidden" id="feedbackThanks">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Thank you for your feedback!
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div class="card loading-card hidden" id="loadingCard">
+        <div class="loading-spinner">
+          <div class="spinner"></div>
+          <p class="loading-text">Searching knowledge base and generating answer...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Knowledge Base Tab -->
+    <section class="tab-content" id="knowledgeSection">
+      <!-- Upload Card -->
+      <div class="card upload-card" id="uploadCard">
+        <h2 class="card-title">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          Upload Content
+        </h2>
+        <p class="card-subtitle">Upload SOP documents to your knowledge base. Supports PDF, DOCX, TXT, MD, CSV, XLSX.</p>
+
+        <div class="drop-zone" id="dropZone">
+          <div class="drop-zone-content">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="drop-icon">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <p class="drop-text">Drag & drop files here</p>
+            <p class="drop-subtext">or click to browse</p>
+          </div>
+          <input type="file" id="fileInput" class="file-input" accept=".pdf,.docx,.txt,.md,.csv,.xlsx" multiple />
+        </div>
+
+        <div class="upload-tags">
+          <label class="filter-label">Tags for upload (comma-separated):</label>
+          <input type="text" id="uploadTags" class="tag-input" placeholder="e.g. emergency, rider, vehicle" />
+        </div>
+
+        <div class="upload-progress hidden" id="uploadProgress">
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <p class="progress-text" id="progressText">Uploading...</p>
+        </div>
+      </div>
+
+      <!-- Documents Table -->
+      <div class="card docs-card" id="docsCard">
+        <div class="docs-header">
+          <h2 class="card-title">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            Knowledge Base Documents
+          </h2>
+          <button class="btn btn-small btn-refresh" id="refreshDocs">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10"/>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+            Refresh
+          </button>
+        </div>
+        <div class="docs-table-wrapper">
+          <table class="docs-table" id="docsTable">
+            <thead>
+              <tr>
+                <th>Document Title</th>
+                <th>Source</th>
+                <th>Sections</th>
+                <th>Tags</th>
+                <th>Last Updated</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="docsBody">
+              <!-- Rows loaded dynamically -->
+            </tbody>
+          </table>
+          <div class="docs-empty hidden" id="docsEmpty">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="empty-icon">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            <p>No documents uploaded yet. Upload some SOPs to get started!</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Feedback Tab -->
+    <section class="tab-content" id="feedbackSection">
+      <div class="card feedback-log-card" id="feedbackLogCard">
+        <h2 class="card-title">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          Feedback Log
+        </h2>
+        <p class="card-subtitle">Review agent feedback to identify content gaps and improvement opportunities</p>
+        <div class="feedback-list" id="feedbackList">
+          <!-- Loaded dynamically -->
+        </div>
+        <div class="feedback-empty hidden" id="feedbackEmpty">
+          <p>No feedback recorded yet.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
