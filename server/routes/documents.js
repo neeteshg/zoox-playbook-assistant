@@ -115,7 +115,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 router.get('/', (req, res) => {
   const docs = db.prepare(`
     SELECT 
-      d.doc_id, d.doc_title, d.source_type, d.source_id, d.file_name, d.last_updated,
+      d.doc_id, d.doc_title, d.source_type, d.source_id, d.file_name, d.city, d.last_updated,
       COUNT(s.section_id) as section_count,
       GROUP_CONCAT(DISTINCT s.tags) as all_tags
     FROM documents d

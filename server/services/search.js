@@ -1,9 +1,6 @@
 import db from '../db.js';
 import { generateEmbedding } from './embeddings.js';
 
-/**
- * Cosine similarity between two vectors
- */
 function cosineSimilarity(a, b) {
   if (!a || !b || a.length !== b.length) return 0;
   let dot = 0, normA = 0, normB = 0;
@@ -15,9 +12,6 @@ function cosineSimilarity(a, b) {
   return dot / (Math.sqrt(normA) * Math.sqrt(normB) + 1e-10);
 }
 
-/**
- * Simple keyword/BM25-like scoring
- */
 function keywordScore(query, text) {
   const queryTokens = query.toLowerCase().split(/\W+/).filter(t => t.length > 2);
   const textLower = text.toLowerCase();
@@ -25,16 +19,14 @@ function keywordScore(query, text) {
   let matchedTerms = 0;
 
   for (const token of queryTokens) {
-    const regex = new RegExp(token, 'gi');
+    const regex = new RegExp(`\\b${token}`, 'gi');
     const matches = textLower.match(regex);
     if (matches) {
-      // TF component: log(1 + count)
       score += Math.log(1 + matches.length);
       matchedTerms++;
     }
   }
 
-  // Boost for matching more unique terms
   if (queryTokens.length > 0) {
     score *= (1 + matchedTerms / queryTokens.length);
   }
@@ -43,24 +35,31 @@ function keywordScore(query, text) {
 }
 
 /**
- * Hybrid search: semantic + keyword
- * @param {string} queryText - The user's query
- * @param {string[]} tagFilters - Optional tag filters
- * @param {number} topK - Number of results to return
+ * Hybrid search with proper tag and city filtering
+ * @param {string} queryText
+ * @param {string[]} tagFilters - Tags to filter by (ALL selected tags must match)
+ * @param {string} cityFilter - City to filter by (empty = all cities)
+ * @param {number} topK
  */
-export async function hybridSearch(queryText, tagFilters = [], topK = 5) {
-  // Get all active sections
+export async function hybridSearch(queryText, tagFilters = [], cityFilter = '', topK = 5) {
   let sections = db.prepare(`
-    SELECT section_id, doc_id, section_title, section_text, tags, source_type, url, embedding, last_updated
+    SELECT section_id, doc_id, section_title, section_text, tags, city, source_type, url, embedding, last_updated
     FROM sections
     WHERE superseded = 0
   `).all();
 
-  // Apply tag filters
+  // Apply city filter: show city-specific + "all" (global) sections
+  if (cityFilter && cityFilter !== 'all') {
+    sections = sections.filter(s => {
+      return s.city === cityFilter || s.city === 'all';
+    });
+  }
+
+  // Apply tag filter: section must contain ALL selected tags
   if (tagFilters.length > 0) {
     sections = sections.filter(s => {
       const sectionTags = JSON.parse(s.tags || '[]');
-      return tagFilters.some(f => sectionTags.includes(f));
+      return tagFilters.every(filterTag => sectionTags.includes(filterTag));
     });
   }
 
@@ -73,28 +72,27 @@ export async function hybridSearch(queryText, tagFilters = [], topK = 5) {
 
   // Semantic search
   const queryEmbedding = await generateEmbedding(queryText);
-  
-  // Score each section
+
   const scored = sections.map(section => {
     let semanticScore = 0;
     if (queryEmbedding && section.embedding) {
       try {
         const sectionEmb = JSON.parse(section.embedding);
         semanticScore = cosineSimilarity(queryEmbedding, sectionEmb);
-      } catch { /* ignore parsing errors */ }
+      } catch { /* ignore */ }
     }
 
     const kwScoreText = keywordScore(queryText, section.section_text);
-    const kwScoreTitle = keywordScore(queryText, section.section_title) * 1.5; // Boost title matches
+    const kwScoreTitle = keywordScore(queryText, section.section_title) * 2.0;
     const kwTotal = kwScoreText + kwScoreTitle;
 
-    // Normalize keyword score to [0,1] range roughly
+    // Normalize keyword score
     const kwNorm = Math.min(kwTotal / 5, 1);
 
     // Combined score
-    const combined = queryEmbedding 
-      ? (0.7 * semanticScore + 0.3 * kwNorm) 
-      : kwNorm; // Fall back to keyword-only if no embeddings
+    const combined = queryEmbedding
+      ? (0.7 * semanticScore + 0.3 * kwNorm)
+      : kwNorm;
 
     return {
       section_id: section.section_id,
@@ -103,6 +101,7 @@ export async function hybridSearch(queryText, tagFilters = [], topK = 5) {
       section_title: section.section_title,
       section_text: section.section_text,
       tags: JSON.parse(section.tags || '[]'),
+      city: section.city,
       source_type: section.source_type,
       url: section.url,
       last_updated: section.last_updated,
@@ -112,15 +111,11 @@ export async function hybridSearch(queryText, tagFilters = [], topK = 5) {
     };
   });
 
-  // Sort by combined score descending
   scored.sort((a, b) => b.score - a.score);
-
   return scored.slice(0, topK);
 }
 
-/**
- * Get all unique tags from the database
- */
+/** Get all unique tags */
 export function getAllTags() {
   const sections = db.prepare("SELECT tags FROM sections WHERE superseded = 0").all();
   const tagSet = new Set();
@@ -129,4 +124,10 @@ export function getAllTags() {
     for (const t of tags) tagSet.add(t);
   }
   return Array.from(tagSet).sort();
+}
+
+/** Get all unique cities */
+export function getAllCities() {
+  const rows = db.prepare("SELECT DISTINCT city FROM sections WHERE superseded = 0 ORDER BY city").all();
+  return rows.map(r => r.city).filter(c => c);
 }

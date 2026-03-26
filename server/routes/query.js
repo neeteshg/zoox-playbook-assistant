@@ -1,25 +1,22 @@
 import { Router } from 'express';
-import { hybridSearch, getAllTags } from '../services/search.js';
+import { hybridSearch, getAllTags, getAllCities } from '../services/search.js';
 import { generateAnswer } from '../services/llm.js';
 
 const router = Router();
 
 /**
  * POST /api/query
- * Accept query text + optional tag filters, run hybrid search, generate LLM answer
+ * Accept query text + optional tag/city filters, run hybrid search, generate LLM answer
  */
 router.post('/', async (req, res) => {
   try {
-    const { query, tags = [], topK = 5 } = req.body;
+    const { query, tags = [], city = '', topK = 5 } = req.body;
 
     if (!query || !query.trim()) {
       return res.status(400).json({ error: 'Query text is required' });
     }
 
-    // Run hybrid search
-    const sections = await hybridSearch(query.trim(), tags, topK);
-
-    // Generate answer
+    const sections = await hybridSearch(query.trim(), tags, city, topK);
     const { answer, model } = await generateAnswer(query.trim(), sections);
 
     res.json({
@@ -31,6 +28,7 @@ router.post('/', async (req, res) => {
         section_title: s.section_title,
         section_text: s.section_text.substring(0, 300) + (s.section_text.length > 300 ? '...' : ''),
         tags: s.tags,
+        city: s.city,
         source_type: s.source_type,
         url: s.url,
         score: Math.round(s.score * 1000) / 1000
@@ -44,13 +42,14 @@ router.post('/', async (req, res) => {
   }
 });
 
-/**
- * GET /api/query/tags
- * Get all available tags for filter UI
- */
+/** GET /api/query/tags */
 router.get('/tags', (req, res) => {
-  const tags = getAllTags();
-  res.json(tags);
+  res.json(getAllTags());
+});
+
+/** GET /api/query/cities */
+router.get('/cities', (req, res) => {
+  res.json(getAllCities());
 });
 
 export default router;
