@@ -341,11 +341,7 @@ async function init() {
     if (health.hasApiKey) {
       badge.querySelector('.status-text').textContent = 'AI Powered';
     } else {
-      badge.querySelector('.status-text').textContent = 'Keyword Mode';
-      badge.querySelector('.status-dot').style.background = 'var(--amber)';
-      badge.style.background = 'var(--amber-soft)';
-      badge.style.borderColor = 'rgba(245, 158, 11, 0.2)';
-      badge.querySelector('.status-text').style.color = 'var(--amber)';
+      badge.querySelector('.status-text').textContent = 'Online';
     }
   } catch {
     const badge = $('statusBadge');

@@ -1,120 +1,117 @@
 import OpenAI from 'openai';
-import dotenv from 'dotenv';
-dotenv.config({ path: new URL('../.env', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1') });
 
-let client = null;
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
-function getClient() {
-  if (!client && process.env.OPENAI_API_KEY) {
-    client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const SYSTEM_PROMPT = `You are Zoox Playbook Assistant, an AI helper for Zoox Rider Operations agents. 
+You answer questions using ONLY the provided SOP context sections. 
+
+Rules:
+1. Base your answer ONLY on the provided context. Do not make up procedures.
+2. If the context doesn't fully answer the question, say what you can answer and note what's missing.
+3. Structure your answer clearly:
+   - Start with a brief 1-2 sentence summary directly answering the question
+   - Then list the step-by-step procedure from the most relevant SOP
+   - End with escalation triggers if any are mentioned
+4. Reference which SOP the steps come from.
+5. Be concise and actionable — agents need quick answers during live situations.
+6. Do NOT mix steps from unrelated SOPs. Use only the most relevant one.`;
+
+export async function generateAnswer(query, sections) {
+  if (!sections || sections.length === 0) {
+    return {
+      answer: "No matching procedures found in the knowledge base. Please try rephrasing your question or check that the relevant SOPs have been uploaded.",
+      model: 'no results'
+    };
   }
-  return client;
+
+  // Build context from top sections
+  const context = sections.map((s, i) =>
+    `[Source ${i + 1}] ${s.doc_title} → ${s.section_title}${s.city && s.city !== 'all' ? ` (City: ${s.city})` : ''}\n${s.section_text}`
+  ).join('\n\n---\n\n');
+
+  // Try OpenAI
+  if (openai) {
+    try {
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: `Question: ${query}\n\n--- SOP Context ---\n${context}` }
+        ],
+        temperature: 0.2,
+        max_tokens: 800,
+      });
+
+      return {
+        answer: response.choices[0].message.content,
+        model: 'gpt-4o-mini'
+      };
+    } catch (err) {
+      console.error('OpenAI error, falling back:', err.message);
+    }
+  }
+
+  // Smart fallback: build answer from the BEST matching section only
+  return buildFallbackAnswer(query, sections);
 }
 
-const SYSTEM_PROMPT = `You are the Zoox Playbook Assistant — an internal tool for Rider Operations / Fusion Center agents.
-Your role is to provide fast, accurate, step-by-step guidance based ONLY on the retrieved SOP sections provided below.
+function buildFallbackAnswer(query, sections) {
+  // Use only the top-scoring section for the main answer
+  const best = sections[0];
+  const text = best.section_text;
 
-RULES:
-- Use ONLY the information from the provided sections. Do NOT hallucinate or add information not present in the sources.
-- If critical information is missing or conflicting, say: "The uploaded SOPs do not clearly cover [topic]. Please escalate to [appropriate role] or refer to [relevant document title]."
-- For sections tagged as "emergency" or "safety_critical", extract steps as literally as possible from the SOPs. Do NOT creatively paraphrase safety procedures.
-- Always cite your sources.
+  // Extract numbered steps from the section text
+  const stepPattern = /\d+\)\s*([^.]+\.(?:[^.]*\.)?)/g;
+  const steps = [];
+  let match;
+  while ((match = stepPattern.exec(text)) !== null) {
+    steps.push(match[1].trim());
+  }
 
-RESPONSE FORMAT (use markdown):
-## Summary
-1-2 sentences describing the situation and main recommended action.
+  // Extract escalation info
+  const escalateIdx = text.toLowerCase().indexOf('escalate');
+  let escalation = '';
+  if (escalateIdx !== -1) {
+    escalation = text.substring(escalateIdx).split('.').slice(0, 2).join('.').trim();
+  }
 
-## Steps
-A numbered list of 3-10 clear, actionable steps. Combine information from multiple sections where applicable.
+  // Build a contextual summary
+  let summary = `Based on the **${best.doc_title}** — *${best.section_title}*`;
+  if (best.city && best.city !== 'all') {
+    summary += ` (${best.city})`;
+  }
+  summary += ', here is the recommended procedure:';
 
-## ⚠️ Escalation / Warnings
-If any source mentions escalation criteria (e.g., "call supervisor if X", "contact safety team if Y"), list them here as bullet points starting with "Escalate if:". If there are no escalation criteria in the sources, omit this section.
+  let answer = `## Summary\n${summary}\n\n`;
 
-## 📋 Sources
-List each source used as a bullet point in the format:
-- **[Document Title]** → [Section Title] (source: [source_type])
-`;
+  if (steps.length > 0) {
+    answer += `## Steps\n`;
+    steps.forEach((step, i) => {
+      answer += `${i + 1}. ${step}\n`;
+    });
+    answer += '\n';
+  } else {
+    // If no numbered steps found, show the section text directly
+    answer += `## Procedure\n${text}\n\n`;
+  }
 
-/**
- * Generate a grounded answer using the LLM
- * @param {string} query - User's question
- * @param {Array} sections - Retrieved sections from search
- * @returns {Promise<{answer: string, model: string}>}
- */
-export async function generateAnswer(query, sections) {
-  const openai = getClient();
+  if (escalation) {
+    answer += `## ⚠️ Escalation\n${escalation}.\n\n`;
+  }
 
-  // Build context from sections
-  const contextParts = sections.map((s, i) => {
-    const tags = Array.isArray(s.tags) ? s.tags.join(', ') : s.tags;
-    return `--- Section ${i + 1} ---
-Document: ${s.doc_title}
-Section: ${s.section_title}
-Tags: ${tags}
-Source: ${s.source_type}${s.url ? ` (${s.url})` : ''}
-
-${s.section_text}`;
+  // Add sources
+  answer += `## 📋 Sources\n`;
+  // Show only the top 3 most relevant sources
+  const topSources = sections.slice(0, 3);
+  topSources.forEach(s => {
+    const cityLabel = s.city && s.city !== 'all' ? ` [${s.city}]` : '';
+    answer += `- **${s.doc_title}**${cityLabel} → ${s.section_title}\n`;
   });
 
-  const context = contextParts.join('\n\n');
-
-  if (!openai) {
-    // Fallback: return a formatted version of retrieved sections without LLM
-    return {
-      answer: formatFallbackAnswer(query, sections),
-      model: 'fallback (no API key)'
-    };
-  }
-
-  try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        {
-          role: 'user',
-          content: `RETRIEVED SECTIONS:\n\n${context}\n\n---\n\nUSER QUESTION: ${query}`
-        }
-      ],
-      temperature: 0.2,
-      max_tokens: 1500,
-    });
-
-    return {
-      answer: response.choices[0].message.content,
-      model: response.model,
-    };
-  } catch (err) {
-    console.error('LLM generation failed:', err.message);
-    return {
-      answer: formatFallbackAnswer(query, sections),
-      model: 'fallback (API error)'
-    };
-  }
-}
-
-function formatFallbackAnswer(query, sections) {
-  if (sections.length === 0) {
-    return `## Summary\nNo relevant sections found in the knowledge base for your query.\n\n## Steps\n1. Try rephrasing your question.\n2. Check if the relevant SOPs have been uploaded.\n3. Contact your supervisor for guidance.`;
-  }
-
-  let answer = `## Summary\nBased on the uploaded SOPs, here are the most relevant procedures for your query.\n\n## Steps\n`;
-
-  // Use the top section's text as primary steps
-  const topSection = sections[0];
-  const steps = topSection.section_text.match(/\d+\)\s[^)]+(?=\d+\)|$)/g);
-  if (steps) {
-    steps.forEach((step, i) => {
-      answer += `${i + 1}. ${step.replace(/^\d+\)\s*/, '').trim()}\n`;
-    });
-  } else {
-    answer += `Refer to the "${topSection.section_title}" section in "${topSection.doc_title}" for detailed steps.\n`;
-  }
-
-  answer += `\n## 📋 Sources\n`;
-  for (const s of sections) {
-    answer += `- **${s.doc_title}** → ${s.section_title} (source: ${s.source_type})\n`;
-  }
-
-  return answer;
+  return {
+    answer,
+    model: 'keyword search (no API key)'
+  };
 }

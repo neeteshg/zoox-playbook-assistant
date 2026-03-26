@@ -12,34 +12,101 @@ function cosineSimilarity(a, b) {
   return dot / (Math.sqrt(normA) * Math.sqrt(normB) + 1e-10);
 }
 
-function keywordScore(query, text) {
-  const queryTokens = query.toLowerCase().split(/\W+/).filter(t => t.length > 2);
-  const textLower = text.toLowerCase();
-  let score = 0;
-  let matchedTerms = 0;
+// Stopwords to ignore in keyword matching
+const STOPWORDS = new Set([
+  'the', 'is', 'at', 'which', 'on', 'a', 'an', 'and', 'or', 'but',
+  'in', 'with', 'to', 'for', 'of', 'not', 'no', 'can', 'had', 'has',
+  'have', 'it', 'its', 'do', 'does', 'did', 'will', 'would', 'shall',
+  'should', 'may', 'might', 'be', 'been', 'being', 'am', 'are', 'was',
+  'were', 'this', 'that', 'these', 'those', 'my', 'your', 'his', 'her',
+  'we', 'they', 'them', 'i', 'me', 'what', 'how', 'when', 'where', 'who',
+  'if', 'so', 'up', 'out', 'just', 'then', 'too', 'very', 'any', 'some'
+]);
 
+// Synonym map for common terms in AV operations
+const SYNONYMS = {
+  'rain': ['rain', 'raining', 'rainy', 'rainfall', 'flood', 'flooding', 'wet', 'storm', 'thunderstorm', 'precipitation', 'heavy rain'],
+  'stuck': ['stuck', 'blocked', 'stopped', 'stalled', 'stranded', 'unable to move', 'not moving', 'immobile'],
+  'emergency': ['emergency', 'urgent', 'critical', 'crisis', 'danger', 'dangerous', 'life-threatening'],
+  'medical': ['medical', 'health', 'injury', 'injured', 'hurt', 'sick', 'illness', 'unconscious', 'faint', 'fainting', 'heart', 'breathing'],
+  'accident': ['accident', 'collision', 'crash', 'hit', 'impact', 'damage', 'damaged'],
+  'weather': ['weather', 'rain', 'raining', 'snow', 'ice', 'icy', 'fog', 'foggy', 'heat', 'hot', 'cold', 'storm', 'wind', 'tornado', 'hail', 'flood'],
+  'vehicle': ['vehicle', 'car', 'pod', 'zoox', 'ride', 'av'],
+  'rider': ['rider', 'passenger', 'customer', 'user', 'person'],
+  'tire': ['tire', 'tyre', 'flat', 'puncture', 'pressure'],
+  'sensor': ['sensor', 'lidar', 'camera', 'radar', 'ultrasonic'],
+  'complaint': ['complaint', 'complain', 'uncomfortable', 'unhappy', 'bad', 'terrible', 'jerky', 'slow'],
+  'lost': ['lost', 'missing', 'forgot', 'forgotten', 'left behind', 'misplaced'],
+  'billing': ['billing', 'charge', 'charged', 'payment', 'refund', 'price', 'fare', 'cost', 'overcharged'],
+};
+
+function expandQueryTerms(queryTokens) {
+  const expanded = new Set(queryTokens);
   for (const token of queryTokens) {
-    const regex = new RegExp(`\\b${token}`, 'gi');
-    const matches = textLower.match(regex);
-    if (matches) {
-      score += Math.log(1 + matches.length);
-      matchedTerms++;
+    for (const [, synonymList] of Object.entries(SYNONYMS)) {
+      if (synonymList.includes(token)) {
+        synonymList.forEach(s => expanded.add(s));
+      }
+    }
+  }
+  return Array.from(expanded);
+}
+
+function keywordScore(query, text, title) {
+  // Tokenize query — remove stopwords
+  const queryTokens = query.toLowerCase().split(/\W+/).filter(t => t.length > 2 && !STOPWORDS.has(t));
+  if (queryTokens.length === 0) return 0;
+
+  // Expand with synonyms
+  const expandedTokens = expandQueryTerms(queryTokens);
+
+  const textLower = text.toLowerCase();
+  const titleLower = title.toLowerCase();
+
+  let textScore = 0;
+  let titleScore = 0;
+  let textMatches = 0;
+  let titleMatches = 0;
+
+  for (const token of expandedTokens) {
+    const textRegex = new RegExp(`\\b${token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'gi');
+    const titleRegex = new RegExp(`\\b${token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'gi');
+
+    const textHits = textLower.match(textRegex);
+    const titleHits = titleLower.match(titleRegex);
+
+    if (textHits) {
+      textScore += Math.log(1 + textHits.length);
+      textMatches++;
+    }
+    if (titleHits) {
+      titleScore += (Math.log(1 + titleHits.length)) * 3;  // Title matches are 3x more valuable
+      titleMatches++;
     }
   }
 
-  if (queryTokens.length > 0) {
-    score *= (1 + matchedTerms / queryTokens.length);
+  // Bonus for matching original (non-expanded) query terms
+  let directMatchBonus = 0;
+  for (const token of queryTokens) {
+    if (textLower.includes(token)) directMatchBonus += 1.5;
+    if (titleLower.includes(token)) directMatchBonus += 3.0;
   }
 
-  return score;
+  // Coverage: what % of query terms matched
+  const totalTerms = expandedTokens.length;
+  const matchedTerms = new Set();
+  for (const token of expandedTokens) {
+    if (textLower.includes(token) || titleLower.includes(token)) matchedTerms.add(token);
+  }
+  const coverage = matchedTerms.size / Math.max(totalTerms, 1);
+
+  const rawScore = textScore + titleScore + directMatchBonus;
+  // Multiply by coverage to penalize sections that only match one word
+  return rawScore * (0.5 + 0.5 * coverage);
 }
 
 /**
  * Hybrid search with proper tag and city filtering
- * @param {string} queryText
- * @param {string[]} tagFilters - Tags to filter by (ALL selected tags must match)
- * @param {string} cityFilter - City to filter by (empty = all cities)
- * @param {number} topK
  */
 export async function hybridSearch(queryText, tagFilters = [], cityFilter = '', topK = 5) {
   let sections = db.prepare(`
@@ -48,14 +115,12 @@ export async function hybridSearch(queryText, tagFilters = [], cityFilter = '', 
     WHERE superseded = 0
   `).all();
 
-  // Apply city filter: show city-specific + "all" (global) sections
+  // City filter: show city-specific + global sections
   if (cityFilter && cityFilter !== 'all') {
-    sections = sections.filter(s => {
-      return s.city === cityFilter || s.city === 'all';
-    });
+    sections = sections.filter(s => s.city === cityFilter || s.city === 'all');
   }
 
-  // Apply tag filter: section must contain ALL selected tags
+  // Tag filter: section must contain ALL selected tags
   if (tagFilters.length > 0) {
     sections = sections.filter(s => {
       const sectionTags = JSON.parse(s.tags || '[]');
@@ -65,29 +130,26 @@ export async function hybridSearch(queryText, tagFilters = [], cityFilter = '', 
 
   if (sections.length === 0) return [];
 
-  // Get doc titles
+  // Doc titles lookup
   const docTitles = {};
   const docs = db.prepare('SELECT doc_id, doc_title FROM documents').all();
   for (const d of docs) docTitles[d.doc_id] = d.doc_title;
 
-  // Semantic search
+  // Semantic embedding
   const queryEmbedding = await generateEmbedding(queryText);
 
   const scored = sections.map(section => {
     let semanticScore = 0;
     if (queryEmbedding && section.embedding) {
       try {
-        const sectionEmb = JSON.parse(section.embedding);
-        semanticScore = cosineSimilarity(queryEmbedding, sectionEmb);
+        semanticScore = cosineSimilarity(queryEmbedding, JSON.parse(section.embedding));
       } catch { /* ignore */ }
     }
 
-    const kwScoreText = keywordScore(queryText, section.section_text);
-    const kwScoreTitle = keywordScore(queryText, section.section_title) * 2.0;
-    const kwTotal = kwScoreText + kwScoreTitle;
+    const kwScore = keywordScore(queryText, section.section_text, section.section_title);
 
-    // Normalize keyword score
-    const kwNorm = Math.min(kwTotal / 5, 1);
+    // Normalize keyword score (cap at reasonable max)
+    const kwNorm = Math.min(kwScore / 10, 1);
 
     // Combined score
     const combined = queryEmbedding
@@ -106,13 +168,17 @@ export async function hybridSearch(queryText, tagFilters = [], cityFilter = '', 
       url: section.url,
       last_updated: section.last_updated,
       score: combined,
-      semantic_score: semanticScore,
-      keyword_score: kwNorm
     };
   });
 
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, topK);
+
+  // Filter out very low-scoring results (below 10% of top score)
+  const topScore = scored[0]?.score || 0;
+  const threshold = topScore * 0.1;
+  const filtered = scored.filter(s => s.score >= threshold);
+
+  return filtered.slice(0, topK);
 }
 
 /** Get all unique tags */
