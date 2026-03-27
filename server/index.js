@@ -60,8 +60,8 @@ app.use('/api/feedback', feedbackRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     timestamp: new Date().toISOString(),
     hasApiKey: !!process.env.OPENAI_API_KEY
   });
@@ -88,4 +88,23 @@ app.listen(PORT, HOST, () => {
   console.log(`   OpenAI API: ${process.env.OPENAI_API_KEY ? '✅ Configured' : '❌ Not configured (keyword search + fallback answers)'}`);
   console.log(`   Admin password: ${ADMIN_PASSWORD === 'zooxadmin' ? '⚠️  Using default (set ADMIN_PASSWORD in .env)' : '✅ Custom password set'}`);
   console.log(`   Mode: ${process.env.NODE_ENV === 'production' ? '🌐 Production' : '🛠️  Development'}\n`);
+
+  // Self-ping to prevent Render free tier from sleeping
+  const RENDER_URL = process.env.RENDER_EXTERNAL_URL;
+  if (RENDER_URL) {
+    const PING_INTERVAL = 5 * 60 * 1000; // 5 minutes
+    setInterval(async () => {
+      try {
+        const res = await fetch(`${RENDER_URL}/api/health`);
+        const data = await res.json();
+        console.log(`🏓 Self-ping OK: ${data.timestamp}`);
+      } catch (err) {
+        console.error('🏓 Self-ping failed:', err.message);
+      }
+    }, PING_INTERVAL);
+    console.log(`   Self-ping: ✅ Every 5 min → ${RENDER_URL}/api/health`);
+  } else {
+    console.log('   Self-ping: ⚠️  Not in production (no RENDER_EXTERNAL_URL)');
+  }
 });
+
