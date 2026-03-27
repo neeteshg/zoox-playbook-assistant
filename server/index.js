@@ -20,12 +20,41 @@ import feedbackRouter from './routes/feedback.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Admin password — set in .env or defaults to 'zooxadmin'
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'zooxadmin';
+
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// API routes
-app.use('/api/documents', documentsRouter);
+// Admin auth middleware — protects upload/delete
+function requireAdmin(req, res, next) {
+  const adminKey = req.headers['x-admin-key'];
+  if (adminKey === ADMIN_PASSWORD) {
+    return next();
+  }
+  return res.status(401).json({ error: 'Admin authentication required' });
+}
+
+// Admin verification endpoint
+app.post('/api/admin/verify', (req, res) => {
+  const { password } = req.body;
+  if (password === ADMIN_PASSWORD) {
+    res.json({ success: true });
+  } else {
+    res.status(401).json({ error: 'Invalid admin password' });
+  }
+});
+
+// API routes — documents upload/delete are admin-protected
+app.use('/api/documents', (req, res, next) => {
+  // Protect upload and delete, but allow GET (listing)
+  if (req.method === 'POST' || req.method === 'DELETE') {
+    return requireAdmin(req, res, next);
+  }
+  next();
+}, documentsRouter);
+
 app.use('/api/query', queryRouter);
 app.use('/api/feedback', feedbackRouter);
 
@@ -57,5 +86,6 @@ const HOST = '0.0.0.0';
 app.listen(PORT, HOST, () => {
   console.log(`\n🚀 Zoox Playbook Assistant running on http://localhost:${PORT}`);
   console.log(`   OpenAI API: ${process.env.OPENAI_API_KEY ? '✅ Configured' : '❌ Not configured (keyword search + fallback answers)'}`);
+  console.log(`   Admin password: ${ADMIN_PASSWORD === 'zooxadmin' ? '⚠️  Using default (set ADMIN_PASSWORD in .env)' : '✅ Custom password set'}`);
   console.log(`   Mode: ${process.env.NODE_ENV === 'production' ? '🌐 Production' : '🛠️  Development'}\n`);
 });

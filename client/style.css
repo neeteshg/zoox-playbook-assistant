@@ -790,6 +790,37 @@ body {
 .feedback-entry-time { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.35rem; }
 .feedback-empty { text-align: center; padding: 3rem; color: var(--text-muted); }
 
+/* ---------- Stats Grid ---------- */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+.stat-card {
+  text-align: center;
+  padding: 1rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.stat-number {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.stat-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
 /* ---------- Loading ---------- */
 .loading-spinner { display: flex; flex-direction: column; align-items: center; gap: 1rem; padding: 2rem 0; }
 

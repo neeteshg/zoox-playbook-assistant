@@ -4,9 +4,36 @@ import { generateAnswer } from '../services/llm.js';
 
 const router = Router();
 
+// Simple in-memory query cache (LRU-ish, max 50 entries)
+const queryCache = new Map();
+const CACHE_MAX = 50;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function getCacheKey(query, tags, city) {
+  return JSON.stringify({ q: query.toLowerCase().trim(), t: tags.sort(), c: city });
+}
+
+function getCached(key) {
+  const entry = queryCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.time > CACHE_TTL) {
+    queryCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setCache(key, data) {
+  if (queryCache.size >= CACHE_MAX) {
+    // Delete oldest entry
+    const oldest = queryCache.keys().next().value;
+    queryCache.delete(oldest);
+  }
+  queryCache.set(key, { data, time: Date.now() });
+}
+
 /**
  * POST /api/query
- * Accept query text + optional tag/city filters, run hybrid search, generate LLM answer
  */
 router.post('/', async (req, res) => {
   try {
@@ -16,13 +43,25 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Query text is required' });
     }
 
-    const sections = await hybridSearch(query.trim(), tags, city, topK);
-    const { answer, model } = await generateAnswer(query.trim(), sections);
+    const cleanQuery = query.trim();
+    const cacheKey = getCacheKey(cleanQuery, tags, city);
 
-    res.json({
-      query: query.trim(),
+    // Check cache first
+    const cached = getCached(cacheKey);
+    if (cached) {
+      return res.json({ ...cached, cached: true });
+    }
+
+    const startTime = Date.now();
+    const sections = await hybridSearch(cleanQuery, tags, city, topK);
+    const { answer, model } = await generateAnswer(cleanQuery, sections);
+    const duration = Date.now() - startTime;
+
+    const result = {
+      query: cleanQuery,
       answer,
       model,
+      duration_ms: duration,
       sources: sections.map(s => ({
         doc_title: s.doc_title,
         section_title: s.section_title,
@@ -34,7 +73,12 @@ router.post('/', async (req, res) => {
         score: Math.round(s.score * 1000) / 1000
       })),
       timestamp: new Date().toISOString()
-    });
+    };
+
+    // Cache the result
+    setCache(cacheKey, result);
+
+    res.json(result);
 
   } catch (err) {
     console.error('Query error:', err);

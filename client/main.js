@@ -12,6 +12,8 @@ const state = {
   currentAnswer: '',
   currentSources: [],
   feedbackGiven: false,
+  isAdmin: false,
+  adminKey: '',
 };
 
 // API
@@ -37,7 +39,11 @@ const API = {
     const formData = new FormData();
     formData.append('file', file);
     if (tags.length > 0) formData.append('tags', JSON.stringify(tags));
-    const res = await fetch('/api/documents/upload', { method: 'POST', body: formData });
+    const res = await fetch('/api/documents/upload', {
+      method: 'POST',
+      headers: { 'X-Admin-Key': state.adminKey },
+      body: formData
+    });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       throw new Error(err.error || res.statusText);
@@ -45,8 +51,14 @@ const API = {
     return res.json();
   },
   async deleteDoc(docId) {
-    const res = await fetch(`/api/documents/${docId}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Failed to delete document');
+    const res = await fetch(`/api/documents/${docId}`, {
+      method: 'DELETE',
+      headers: { 'X-Admin-Key': state.adminKey }
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || res.statusText);
+    }
     return res.json();
   },
 };
@@ -67,6 +79,11 @@ const els = {
   uploadProgress: $('uploadProgress'), progressFill: $('progressFill'), progressText: $('progressText'),
   docsBody: $('docsBody'), docsEmpty: $('docsEmpty'), docsTable: $('docsTable'), refreshDocs: $('refreshDocs'),
   feedbackList: $('feedbackList'), feedbackEmpty: $('feedbackEmpty'),
+  adminToggle: $('adminToggle'), adminPanel: $('adminPanel'), adminPasswordInput: $('adminPasswordInput'),
+  adminLoginBtn: $('adminLoginBtn'), adminStatus: $('adminStatus'), adminLogout: $('adminLogout'),
+  uploadCard: $('uploadCard'),
+  feedbackStats: $('feedbackStats'), exportFeedbackBtn: $('exportFeedbackBtn'),
+  answerTime: $('answerTime'),
 };
 
 // ---------- Tabs ----------
@@ -76,7 +93,7 @@ function switchTab(tabName) {
   const target = { query: els.querySection, knowledge: els.knowledgeSection, feedback: els.feedbackSection }[tabName];
   if (target) target.classList.add('active');
   if (tabName === 'knowledge') loadDocuments();
-  if (tabName === 'feedback') loadFeedbackLog();
+  if (tabName === 'feedback') { loadFeedbackLog(); loadFeedbackStats(); }
 }
 document.querySelectorAll('.nav-tab').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
 
@@ -134,6 +151,11 @@ async function submitQuery() {
   els.loadingCard.classList.remove('hidden');
   els.queryBtn.disabled = true;
 
+  // Auto-scroll to loading indicator
+  setTimeout(() => {
+    els.loadingCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 100);
+
   try {
     const result = await API.post('/api/query', {
       query,
@@ -145,11 +167,23 @@ async function submitQuery() {
     state.currentSources = result.sources;
     els.answerContent.innerHTML = marked.parse(result.answer);
     els.answerModel.textContent = result.model || '';
+
+    // Show response time
+    if (result.duration_ms) {
+      els.answerTime.textContent = `${result.cached ? 'cached · ' : ''}${result.duration_ms}ms`;
+      els.answerTime.classList.remove('hidden');
+    }
+
     renderSources(result.sources);
     resetFeedbackUI();
     els.loadingCard.classList.add('hidden');
     els.answerCard.classList.remove('hidden');
-    els.answerCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Auto-scroll to answer card
+    setTimeout(() => {
+      els.answerCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+
   } catch (err) {
     console.error('Query failed:', err);
     els.loadingCard.classList.add('hidden');
@@ -191,6 +225,55 @@ els.queryInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitQuery(); }
 });
 
+// ---------- Admin Auth ----------
+function updateAdminUI() {
+  if (state.isAdmin) {
+    els.adminStatus.textContent = '🔓 Admin mode active';
+    els.adminStatus.style.color = 'var(--green)';
+    els.adminLoginBtn.classList.add('hidden');
+    els.adminPasswordInput.classList.add('hidden');
+    els.adminLogout.classList.remove('hidden');
+    els.uploadCard.classList.remove('hidden');
+    // Show delete buttons
+    document.querySelectorAll('.btn-danger').forEach(b => b.style.display = '');
+  } else {
+    els.adminStatus.textContent = '🔒 View only mode';
+    els.adminStatus.style.color = 'var(--text-muted)';
+    els.adminLoginBtn.classList.remove('hidden');
+    els.adminPasswordInput.classList.remove('hidden');
+    els.adminLogout.classList.add('hidden');
+    els.uploadCard.classList.add('hidden');
+    // Hide delete buttons
+    document.querySelectorAll('.btn-danger').forEach(b => b.style.display = 'none');
+  }
+}
+
+els.adminLoginBtn.addEventListener('click', async () => {
+  const password = els.adminPasswordInput.value.trim();
+  if (!password) return;
+  try {
+    await API.post('/api/admin/verify', { password });
+    state.isAdmin = true;
+    state.adminKey = password;
+    els.adminPasswordInput.value = '';
+    updateAdminUI();
+  } catch {
+    els.adminStatus.textContent = '❌ Wrong password';
+    els.adminStatus.style.color = 'var(--red)';
+    setTimeout(() => updateAdminUI(), 2000);
+  }
+});
+
+els.adminPasswordInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') els.adminLoginBtn.click();
+});
+
+els.adminLogout.addEventListener('click', () => {
+  state.isAdmin = false;
+  state.adminKey = '';
+  updateAdminUI();
+});
+
 // ---------- Feedback ----------
 function resetFeedbackUI() {
   els.btnHelpful.classList.remove('active');
@@ -198,6 +281,7 @@ function resetFeedbackUI() {
   els.feedbackComment.classList.add('hidden');
   els.feedbackThanks.classList.add('hidden');
   els.feedbackInput.value = '';
+  els.answerTime.classList.add('hidden');
   state.feedbackGiven = false;
 }
 
@@ -226,6 +310,38 @@ els.btnHelpful.addEventListener('click', () => submitFeedback('helpful'));
 els.btnNotHelpful.addEventListener('click', () => submitFeedback('not_helpful'));
 els.submitFeedback.addEventListener('click', () => doSubmitFeedback('not_helpful', els.feedbackInput.value.trim()));
 
+// ---------- Feedback Stats ----------
+async function loadFeedbackStats() {
+  try {
+    const stats = await API.get('/api/feedback/stats');
+    els.feedbackStats.innerHTML = `
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-number">${stats.total}</div>
+          <div class="stat-label">Total Responses</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" style="color: var(--green);">${stats.satisfaction_rate}%</div>
+          <div class="stat-label">Satisfaction Rate</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" style="color: var(--green);">👍 ${stats.helpful}</div>
+          <div class="stat-label">Helpful</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" style="color: var(--red);">👎 ${stats.not_helpful}</div>
+          <div class="stat-label">Not Helpful</div>
+        </div>
+      </div>
+    `;
+    els.feedbackStats.classList.remove('hidden');
+  } catch { /* ignore */ }
+}
+
+els.exportFeedbackBtn.addEventListener('click', () => {
+  window.open('/api/feedback/export', '_blank');
+});
+
 // ---------- Upload ----------
 function setupUpload() {
   const dz = els.dropZone;
@@ -236,6 +352,7 @@ function setupUpload() {
 }
 
 async function handleFiles(fileList) {
+  if (!state.isAdmin) { alert('Please login as admin to upload files.'); return; }
   const files = Array.from(fileList);
   const tagsStr = els.uploadTags.value.trim();
   const tags = tagsStr ? tagsStr.split(',').map(t => t.trim()).filter(t => t) : [];
@@ -278,13 +395,14 @@ async function loadDocuments() {
         <td><span class="doc-section-count">${d.section_count}</span></td>
         <td><div class="doc-tags">${(d.all_tags || []).map(t => `<span class="doc-tag">${esc(t)}</span>`).join('')}</div></td>
         <td class="doc-date">${formatDate(d.last_updated)}</td>
-        <td><button class="btn btn-small btn-danger" onclick="deleteDocument('${esc(d.doc_id)}')">Delete</button></td>
+        <td><button class="btn btn-small btn-danger" onclick="deleteDocument('${esc(d.doc_id)}')" style="${state.isAdmin ? '' : 'display:none'}">Delete</button></td>
       </tr>
     `).join('');
   } catch (err) { console.error('Failed to load documents:', err); }
 }
 
 window.deleteDocument = async function(docId) {
+  if (!state.isAdmin) { alert('Admin login required to delete documents.'); return; }
   if (!confirm('Delete this document and all its sections?')) return;
   try { await API.deleteDoc(docId); loadDocuments(); loadTags(); loadCities(); }
   catch (err) { alert('Failed to delete: ' + err.message); }
@@ -333,6 +451,7 @@ function trunc(str, len) { return !str ? '' : str.length > len ? str.substring(0
 // ---------- Init ----------
 async function init() {
   setupUpload();
+  updateAdminUI();
   await Promise.all([loadTags(), loadCities(), loadDocuments()]);
 
   try {
@@ -345,9 +464,9 @@ async function init() {
     }
   } catch {
     const badge = $('statusBadge');
-    badge.querySelector('.status-text').textContent = 'Server Offline';
+    badge.querySelector('.status-text').textContent = 'Offline';
     badge.querySelector('.status-dot').style.background = 'var(--red)';
-    badge.style.background = 'var(--red-soft)';
+    badge.style.background = 'var(--red-light)';
     badge.style.borderColor = 'rgba(239, 68, 68, 0.2)';
     badge.querySelector('.status-text').style.color = 'var(--red)';
   }
